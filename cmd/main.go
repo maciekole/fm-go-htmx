@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -23,13 +24,18 @@ func newTemplate() *Templates {
 	}
 }
 
+var id int = 0
+
 type Contact struct {
+	Id    int
 	Name  string
 	Email string
 }
 
 func newContact(name string, email string) Contact {
+	id++
 	return Contact{
+		Id:    id,
 		Name:  name,
 		Email: email,
 	}
@@ -48,6 +54,15 @@ func (d *Data) hasEmail(email string) bool {
 
 type Data struct {
 	Contacts Contacts
+}
+
+func (d *Data) IndexOf(id int) int {
+	for i, contact := range d.Contacts {
+		if id == contact.Id {
+			return i
+		}
+	}
+	return -1
 }
 
 func newData() Data {
@@ -106,8 +121,6 @@ func main() {
 		fmt.Println()
 
 		if page.Data.hasEmail(email) {
-			fmt.Printf("DEBUG: page.Data.hasEmail")
-			fmt.Println()
 			formData := newFormData()
 			formData.Values["name"] = name
 			formData.Values["email"] = email
@@ -116,14 +129,26 @@ func main() {
 			return c.Render(422, "form", formData)
 		}
 
-		fmt.Printf("DEBUG: %s", page.Data)
-		fmt.Println()
 		contact := newContact(name, email)
 		page.Data.Contacts = append(page.Data.Contacts, contact)
-		fmt.Printf("DEBUG: %s", page.Data)
-		fmt.Println()
 		c.Render(200, "form", newFormData())
 		return c.Render(200, "oob-contact", contact)
+	})
+
+	e.DELETE("/contacts/:id", func(c echo.Context) error {
+		idStr := c.Param("id")
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			return c.String(400, "Invalid ID")
+		}
+
+		index := page.Data.IndexOf(id)
+		if index == -1 {
+			return c.String(400, "Contact not found")
+		}
+
+		page.Data.Contacts = append(page.Data.Contacts[:index], page.Data.Contacts[index+1:]...)
+		return c.NoContent(200)
 	})
 
 	e.Logger.Fatal(e.Start(":8080"))
