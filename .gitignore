@@ -19,3 +19,9 @@
 
 # Go workspace file
 go.work
+
+
+/tmp/
+/dist/
+/node_modules/
+/views/**/*.go
